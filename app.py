@@ -14,6 +14,14 @@ def load_model():
     except Exception as e:
         st.error(f"Error loading model: {e}")
         return None
+
+# ✅ ADD THIS LINE
+model = load_model()
+
+# STOP IF MODEL NOT LOADED
+if model is None:
+    st.error("❌ Model not loaded. Make sure best.pt is present.")
+    st.stop()
 # ---------------- EXTRACT IMAGE TIME ----------------
 def get_image_time(image):
     try:
