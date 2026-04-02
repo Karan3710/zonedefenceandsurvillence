@@ -140,7 +140,6 @@ if uploaded_file:
 
     # Info Panel
     st.subheader("🧠 Surveillance Intelligence")
-    st.write(f"🕒 Time: {hour}:00 ({time_mode})")
     st.write(f"💡 Brightness: {brightness:.2f}")
     st.write(f"👤 Persons: {p_count}")
     st.write(f"🚗 Vehicles: {v_count}")
