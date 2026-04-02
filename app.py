@@ -9,16 +9,11 @@ import datetime
 @st.cache_resource
 def load_model():
     try:
-        return YOLO(r"C:\Users\karan\Downloads\zonedetection\best.pt")   # keep best.pt in same folder
-    except:
+        model_path = os.path.join(os.getcwd(), "best.pt")
+        return YOLO(model_path)
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
         return None
-
-model = load_model()
-
-if model is None:
-    st.error("❌ Model not loaded. Make sure best.pt is in same folder.")
-    st.stop()
-
 # ---------------- EXTRACT IMAGE TIME ----------------
 def get_image_time(image):
     try:
