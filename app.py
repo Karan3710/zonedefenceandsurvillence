@@ -2,9 +2,10 @@ import streamlit as st
 from ultralytics import YOLO
 import cv2
 import numpy as np
-from PIL import Image, ExifTags
+from PIL import Image
 import datetime
-import os   # ✅ FIX 1
+import os
+import time
 
 # ---------------- LOAD MODEL ----------------
 @st.cache_resource
@@ -13,35 +14,43 @@ def load_model():
         model_path = os.path.join(os.getcwd(), "best.pt")
         return YOLO(model_path)
     except Exception as e:
-        st.error(f"Error loading model: {e}")
+        st.error(f"❌ Error loading model: {e}")
         return None
 
-# ✅ LOAD MODEL
 model = load_model()
 
 if model is None:
     st.error("❌ Model not loaded. Make sure best.pt is present.")
     st.stop()
 
-# ---------------- DAY/NIGHT DETECTION ----------------
-def detect_day_night(img):
+# ---------------- SMART THREAT ENGINE ----------------
+def get_smart_threat(img, results, model):
+
+    # -------- TIME --------
+    hour = datetime.datetime.now().hour
+
+    if 6 <= hour < 18:
+        time_mode = "DAY"
+        score = 1
+    elif 18 <= hour < 22:
+        time_mode = "EVENING"
+        score = 2
+    else:
+        time_mode = "NIGHT"
+        score = 3
+
+    # -------- BRIGHTNESS --------
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     brightness = np.mean(gray)
 
-    if brightness > 100:
-        return "DAY", brightness
-    elif brightness > 60:
-        return "DIM", brightness
-    else:
-        return "NIGHT", brightness
+    if brightness < 50:
+        score += 2
+    elif brightness < 90:
+        score += 1
 
-# ---------------- SMART THREAT ENGINE ----------------
-def get_smart_threat(image, img, results, model):  # ✅ FIX 2
-
-    day_night, brightness = detect_day_night(img)
-    hour = datetime.datetime.now().hour
-
-    score = 1 if day_night == "DAY" else 2 if day_night == "DIM" else 3
+    # -------- OBJECT ANALYSIS --------
+    person_count = 0
+    vehicle_count = 0
 
     if results[0].boxes is not None:
         for box in results[0].boxes:
@@ -49,47 +58,82 @@ def get_smart_threat(image, img, results, model):  # ✅ FIX 2
             label = model.names[cls]
 
             if label == "person":
-                score += 2
+                person_count += 1
             elif label == "vehicle":
-                score += 1
+                vehicle_count += 1
 
+    # -------- INTELLIGENCE LOGIC --------
+    if person_count >= 3:
+        score += 4
+    elif person_count >= 1:
+        score += 2
+
+    if vehicle_count >= 2:
+        score += 2
+    elif vehicle_count == 1:
+        score += 1
+
+    if time_mode == "NIGHT" and person_count > 0:
+        score += 3  # critical boost
+
+    # -------- FINAL THREAT --------
     if score <= 2:
         threat = "🟢 LOW"
-    elif score <= 4:
+    elif score <= 5:
         threat = "🟡 MEDIUM"
-    elif score <= 6:
+    elif score <= 8:
         threat = "🟠 HIGH"
     else:
         threat = "🔴 CRITICAL"
 
-    return threat, hour, day_night, brightness
+    return threat, hour, time_mode, brightness, person_count, vehicle_count
 
 # ---------------- UI ----------------
 st.set_page_config(page_title="AI Border Surveillance", layout="wide")
 
 st.title("🚨 AI Border Surveillance System")
+st.markdown("Smart Detection using **AI + Time + Brightness Intelligence**")
 
+# Sidebar
+st.sidebar.header("⚙️ Settings")
 confidence = st.sidebar.slider("Confidence", 0.1, 1.0, 0.5)
 
-# ---------------- IMAGE ----------------
-uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
+# ---------------- IMAGE UPLOAD ----------------
+uploaded_file = st.file_uploader("📤 Upload Image", type=["jpg", "png", "jpeg"])
 
 if uploaded_file:
     image = Image.open(uploaded_file)
     img = np.array(image)
 
-    st.image(image, width='stretch')
+    st.subheader("📷 Uploaded Image")
+    st.image(image, use_container_width=True)
 
+    # Prediction
     results = model(img, conf=confidence)
     annotated = results[0].plot()
 
-    st.image(annotated, width='stretch')
+    st.subheader("🎯 Detection Results")
+    st.image(annotated, use_container_width=True)
 
-    threat, hour, day_night, brightness = get_smart_threat(
-        image, img, results, model  # ✅ FIX 2 applied
+    # Threat Analysis
+    threat, hour, time_mode, brightness, p_count, v_count = get_smart_threat(
+        img, results, model
     )
 
+    st.subheader("🚨 Threat Level")
     st.metric("Threat", threat)
+
+    if threat == "🔴 CRITICAL":
+        st.error("🚨 CRITICAL ALERT: Intrusion detected!")
+    elif threat == "🟠 HIGH":
+        st.warning("⚠️ HIGH RISK activity detected")
+
+    # Info
+    st.subheader("🧠 Surveillance Intelligence")
+    st.write(f"🕒 Time: {hour}:00 ({time_mode})")
+    st.write(f"💡 Brightness: {brightness:.2f}")
+    st.write(f"👤 Persons: {p_count}")
+    st.write(f"🚗 Vehicles: {v_count}")
 
 # ---------------- WEBCAM ----------------
 run = st.sidebar.checkbox("Start Webcam")
@@ -102,18 +146,26 @@ if run:
     while True:
         ret, frame = cap.read()
         if not ret:
+            st.error("❌ Webcam not working")
             break
 
         results = model(frame, conf=confidence)
         annotated = results[0].plot()
 
-        threat, hour, day_night, brightness = get_smart_threat(
-            None, frame, results, model  # ✅ FIX 2 applied
+        threat, hour, time_mode, brightness, p_count, v_count = get_smart_threat(
+            frame, results, model
         )
 
-        FRAME_WINDOW.image(annotated, channels="BGR")
+        FRAME_WINDOW.image(annotated, channels="BGR", use_container_width=True)
+
+        st.sidebar.metric("Threat Level", threat)
+
+        time.sleep(0.03)
 
         if not st.session_state.get("Start Webcam", False):
             break
 
     cap.release()
+
+else:
+    st.write("📷 Webcam stopped")
