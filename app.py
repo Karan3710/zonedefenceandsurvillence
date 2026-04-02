@@ -52,7 +52,7 @@ def get_smart_threat(img, results_general, model):
         score -= 1
 
     # -------- OBJECT COUNT (GENERAL MODEL) --------
-   person_count = 0
+person_count = 0
 vehicle_count = 0
 
 vehicle_classes = ["car", "truck", "bus", "motorcycle", "bicycle"]
