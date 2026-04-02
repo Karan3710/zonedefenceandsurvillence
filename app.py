@@ -105,27 +105,28 @@ st.markdown("Hybrid AI: General Detection + Custom Border Intelligence")
 
 # Sidebar
 st.sidebar.header("⚙️ Settings")
-confidence = st.sidebar.slider("Confidence", 0.1, 1.0, 0.5)
+confidence = st.sidebar.slider("Confidence", 0.1, 1.0, 0.25)
 
 # ---------------- IMAGE UPLOAD ----------------
 uploaded_file = st.file_uploader("📤 Upload Image", type=["jpg", "png", "jpeg"])
 
 if uploaded_file:
     image = Image.open(uploaded_file)
-    img = np.array(image)
 
-    st.subheader("📷 Uploaded Image")
+    # ✅ FIX COLOR (correct indent)
+    img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+
     st.image(image, use_container_width=True)
 
-    # -------- DETECTION --------
+    # ✅ LOWER CONFIDENCE (recommended)
     results_general = general_model(img, conf=confidence)
-    results_custom = custom_model(img, conf=confidence)
+
+    # ✅ DEBUG
+    st.write("Detections:", results_general[0].boxes)
 
     annotated = results_general[0].plot()
 
-    st.subheader("🎯 Detection Results")
     st.image(annotated, use_container_width=True)
-
     # -------- THREAT --------
     threat, hour, time_mode, brightness, p_count, v_count = get_smart_threat(
         img, results_general, general_model
