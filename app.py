@@ -52,25 +52,28 @@ def get_smart_threat(img, results_general, model):
         score -= 1
 
     # -------- OBJECT COUNT (GENERAL MODEL) --------
-    person_count = 0
-    vehicle_count = 0
+   person_count = 0
+vehicle_count = 0
 
-    vehicle_classes = ["car", "truck", "bus", "motorcycle", "bicycle"]
+vehicle_classes = ["car", "truck", "bus", "motorcycle", "bicycle"]
 
-    if results_general[0].boxes is not None:
-        for box in results_general[0].boxes:
-            cls = int(box.cls[0])
-            label = model.names[cls].lower()
-            conf_score = float(box.conf[0])
+if results_general[0].boxes is not None:
+    for box in results_general[0].boxes:
 
-            if conf_score < 0.4:
-                continue
+        cls = int(box.cls[0].item())   # ✅ FIX
+        conf_score = float(box.conf[0].item())  # ✅ FIX
+        label = general_model.names[cls].lower()  # ✅ USE GENERAL MODEL
 
-            if label == "person":
-                person_count += 1
-            elif label in vehicle_classes:
-                vehicle_count += 1
+        # DEBUG (IMPORTANT)
+        st.write("Detected:", label, "Confidence:", conf_score)
 
+        if conf_score < 0.25:
+            continue
+
+        if label == "person":
+            person_count += 1
+        elif label in vehicle_classes:
+            vehicle_count += 1
     # -------- LOGIC --------
     if person_count >= 3:
         score += 4
