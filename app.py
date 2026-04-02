@@ -64,7 +64,7 @@ def get_smart_threat(img, results_general, model):
             conf_score = float(box.conf[0].item())
             label = model.names[cls].lower()
 
-            if conf_score < 0.25:
+            if conf_score < confidence:
                 continue
 
             if label == "person":
