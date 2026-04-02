@@ -26,40 +26,49 @@ if model is None:
 # ---------------- SMART THREAT ENGINE ----------------
 def get_smart_threat(img, results, model):
 
-    # -------- TIME --------
+    # -------- TIME (PRIMARY FACTOR) --------
     hour = datetime.datetime.now().hour
 
     if 6 <= hour < 18:
         time_mode = "DAY"
-        score = 1
+        base_score = 1
     elif 18 <= hour < 22:
         time_mode = "EVENING"
-        score = 2
+        base_score = 2
     else:
         time_mode = "NIGHT"
-        score = 3
+        base_score = 3
 
-    # -------- BRIGHTNESS --------
+    score = base_score
+
+    # -------- BRIGHTNESS (SECONDARY) --------
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     brightness = np.mean(gray)
 
     if brightness < 50:
-        score += 2
-    elif brightness < 90:
         score += 1
+    elif brightness > 180:
+        score -= 1
 
-    # -------- OBJECT ANALYSIS --------
+    # -------- OBJECT COUNT (FIXED) --------
     person_count = 0
     vehicle_count = 0
+
+    vehicle_classes = ["car", "truck", "bus", "motorcycle", "bicycle"]
 
     if results[0].boxes is not None:
         for box in results[0].boxes:
             cls = int(box.cls[0])
-            label = model.names[cls]
+            label = model.names[cls].lower()
+            conf_score = float(box.conf[0])
+
+            # Ignore weak detections
+            if conf_score < 0.4:
+                continue
 
             if label == "person":
                 person_count += 1
-            elif label == "vehicle":
+            elif label in vehicle_classes:
                 vehicle_count += 1
 
     # -------- INTELLIGENCE LOGIC --------
@@ -73,8 +82,9 @@ def get_smart_threat(img, results, model):
     elif vehicle_count == 1:
         score += 1
 
+    # NIGHT + PERSON = CRITICAL BOOST
     if time_mode == "NIGHT" and person_count > 0:
-        score += 3  # critical boost
+        score += 3
 
     # -------- FINAL THREAT --------
     if score <= 2:
@@ -128,7 +138,7 @@ if uploaded_file:
     elif threat == "🟠 HIGH":
         st.warning("⚠️ HIGH RISK activity detected")
 
-    # Info
+    # Info Panel
     st.subheader("🧠 Surveillance Intelligence")
     st.write(f"🕒 Time: {hour}:00 ({time_mode})")
     st.write(f"💡 Brightness: {brightness:.2f}")
