@@ -51,29 +51,27 @@ def get_smart_threat(img, results_general, model):
     elif brightness > 180:
         score -= 1
 
-    # -------- OBJECT COUNT (GENERAL MODEL) --------
-person_count = 0
-vehicle_count = 0
+    # -------- OBJECT COUNT --------
+    person_count = 0
+    vehicle_count = 0
 
-vehicle_classes = ["car", "truck", "bus", "motorcycle", "bicycle"]
+    vehicle_classes = ["car", "truck", "bus", "motorcycle", "bicycle"]
 
-if results_general[0].boxes is not None:
-    for box in results_general[0].boxes:
+    if results_general[0].boxes is not None:
+        for box in results_general[0].boxes:
 
-        cls = int(box.cls[0].item())   # ✅ FIX
-        conf_score = float(box.conf[0].item())  # ✅ FIX
-        label = general_model.names[cls].lower()  # ✅ USE GENERAL MODEL
+            cls = int(box.cls[0].item())
+            conf_score = float(box.conf[0].item())
+            label = model.names[cls].lower()
 
-        # DEBUG (IMPORTANT)
-        st.write("Detected:", label, "Confidence:", conf_score)
+            if conf_score < 0.25:
+                continue
 
-        if conf_score < 0.25:
-            continue
+            if label == "person":
+                person_count += 1
+            elif label in vehicle_classes:
+                vehicle_count += 1
 
-        if label == "person":
-            person_count += 1
-        elif label in vehicle_classes:
-            vehicle_count += 1
     # -------- LOGIC --------
     if person_count >= 3:
         score += 4
@@ -98,8 +96,8 @@ if results_general[0].boxes is not None:
     else:
         threat = "🔴 CRITICAL"
 
+    
     return threat, hour, time_mode, brightness, person_count, vehicle_count
-
 # ---------------- UI ----------------
 st.set_page_config(page_title="AI Border Surveillance", layout="wide")
 
